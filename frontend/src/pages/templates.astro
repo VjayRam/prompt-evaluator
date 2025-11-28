@@ -1,0 +1,122 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Metric Templates - PromptEval">
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-semibold text-white">Metric Templates</h1>
+        <p class="text-sm text-zinc-500 mt-1">View the system prompts used for each evaluation metric</p>
+      </div>
+      <a href="/" class="btn btn-ghost text-xs">
+        <svg class="w-4 h-4 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+        </svg>
+        Back to Evaluation
+      </a>
+    </div>
+
+    <!-- Templates Grid -->
+    <div id="templatesGrid" class="grid gap-6">
+      <div class="text-sm text-zinc-600 text-center py-12">Loading templates...</div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  const API = '/api/v1';
+  const $ = (id) => document.getElementById(id);
+
+  async function loadTemplates() {
+    try {
+      // We need to fetch metrics to get the list
+      // Ideally we'd have an endpoint that returns full templates for everything
+      // For now, we might need to rely on what the backend exposes
+      
+      // Let's check if the /metrics endpoint gives us what we need
+      // Based on previous context, /metrics returns { pointwise_metrics: [], description: {} }
+      // It doesn't seem to return the actual full templates for predefined metrics yet.
+      // However, the user prompt implies "see all the metric prompt templates".
+      
+      // If the backend doesn't expose raw templates for predefined metrics, we might need to 
+      // update the backend first or just show descriptions. 
+      // BUT, looking at the backend code in `backend/api/routes.py`:
+      // @router.get("/metrics", response_model=MetricsListResponse, tags=["Info"])
+      // async def list_metrics():
+      //    return MetricsListResponse(
+      //        pointwise_metrics=[m.value for m in MetricType],
+      //        description=METRIC_DESCRIPTIONS
+      //    )
+      
+      // It seems it currently only returns descriptions. 
+      // The user asked to see "prompt templates". 
+      // I should probably update the backend to return templates as well if possible, 
+      // OR just show the descriptions if that's what is meant by "templates" in the current context (since the UI was showing descriptions).
+      
+      // Wait, in the previous turn I saw:
+      // `metricTemplates = data.templates;` in the frontend code I just read.
+      // But looking at the backend search result from earlier:
+      // `METRIC_TEMPLATES` dictionary exists in `backend/api/routes.py`.
+      // But `list_metrics` endpoint DOES NOT appear to return them in `MetricsListResponse`.
+      
+      // I should check `backend/api/models.py` for `MetricsListResponse` definition again.
+      // It was:
+      // class MetricsListResponse(BaseModel):
+      //    pointwise_metrics: list[str]
+      //    description: dict[str, str]
+      
+      // So I definitely need to update the backend to expose the templates if I want to show them.
+      // The user said "modify the metrics section...". 
+      // And "right now the preview shows a one-liner about the metric" (which is the description).
+      // "add a button... to see all the metric prompt templates".
+      
+      // So I MUST update the backend to return templates.
+      
+      const res = await fetch(`${API}/metrics`);
+      const data = await res.json();
+      
+      const container = $('templatesGrid');
+      container.innerHTML = '';
+      
+      // Create sections for each metric
+      data.pointwise_metrics.forEach(metric => {
+        const name = metric.replace(/_/g, ' ');
+        const description = data.description[metric] || 'No description available';
+        const template = data.templates ? (data.templates[metric] || 'Template not available via API') : description; // Fallback or real template
+        
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="mb-3">
+            <h3 class="text-base font-medium text-white capitalize">${name}</h3>
+            <p class="text-sm text-zinc-500 mt-1">${description}</p>
+          </div>
+          <div class="bg-zinc-900/50 rounded border border-zinc-800 p-4 relative group">
+            <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button class="btn-icon text-xs bg-zinc-800 hover:bg-zinc-700" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.textContent)">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
+              </button>
+            </div>
+            <pre class="text-xs text-zinc-400 font-mono whitespace-pre-wrap break-words">${template}</pre>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+      
+    } catch (err) {
+      console.error(err);
+      $('templatesGrid').innerHTML = `
+        <div class="text-center py-12">
+          <p class="text-red-400 mb-2">Failed to load templates</p>
+          <button onclick="location.reload()" class="btn btn-ghost text-xs">Try Again</button>
+        </div>
+      `;
+    }
+  }
+
+  loadTemplates();
+</script>

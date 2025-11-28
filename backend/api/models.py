@@ -163,6 +163,7 @@ class MetricsListResponse(BaseModel):
     """Response model for available metrics endpoint."""
     pointwise_metrics: list[str]
     description: dict[str, str]
+    templates: Optional[dict[str, str]] = None
 
 
 class ModelsListResponse(BaseModel):

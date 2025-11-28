@@ -86,9 +86,13 @@ async def health_check():
 @router.get("/metrics", response_model=MetricsListResponse, tags=["Info"])
 async def list_metrics():
     """List all available evaluation metrics."""
+    # Convert templates to string keys
+    templates = {k.value: v for k, v in METRIC_TEMPLATES.items()}
+    
     return MetricsListResponse(
         pointwise_metrics=[m.value for m in MetricType],
-        description=METRIC_DESCRIPTIONS
+        description=METRIC_DESCRIPTIONS,
+        templates=templates
     )
 
 

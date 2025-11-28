@@ -5,9 +5,17 @@ import Layout from '../layouts/Layout.astro';
 <Layout title="LLM Evaluator">
   <div class="space-y-6">
     <!-- Page Header -->
-    <div>
-      <h1 class="text-xl font-semibold text-white">Evaluate</h1>
-      <p class="text-sm text-zinc-500 mt-1">Configure and evaluate prompt performance for your LLM</p>
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-semibold text-white">Evaluate</h1>
+        <p class="text-sm text-zinc-500 mt-1">Configure and evaluate prompt performance for your LLM</p>
+      </div>
+      <button id="resetAllBtn" class="btn btn-ghost text-xs text-zinc-500 hover:text-red-400 hover:bg-red-400/10 border-zinc-800" title="Reset all settings">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+        Reset
+      </button>
     </div>
 
     <!-- Main Grid -->
@@ -58,7 +66,13 @@ import Layout from '../layouts/Layout.astro';
         <div class="card">
           <div class="flex items-center justify-between mb-3">
             <label class="text-xs font-medium text-zinc-400">Dataset</label>
-            <span id="fileInfo" class="text-xs text-zinc-600"></span>
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-1.5" title="Save dataset to local storage">
+                <input type="checkbox" id="persistDataset" class="rounded border-zinc-700 bg-zinc-800 text-indigo-500 focus:ring-indigo-500/20 w-3.5 h-3.5 cursor-pointer" />
+                <label for="persistDataset" class="text-[10px] text-zinc-500 select-none cursor-pointer">Persist</label>
+              </div>
+              <span id="fileInfo" class="text-xs text-zinc-600"></span>
+            </div>
           </div>
           
           <div id="uploadZone" class="upload-zone">
@@ -108,7 +122,15 @@ import Layout from '../layouts/Layout.astro';
         <div class="card">
           <div class="flex items-center justify-between mb-3">
             <label class="text-xs font-medium text-zinc-400">Metrics</label>
-            <button id="addMetric" class="text-xs text-indigo-400 hover:text-indigo-300 transition">+ Custom</button>
+            <div class="flex gap-2">
+              <a href="/templates" class="text-xs text-zinc-500 hover:text-zinc-300 transition flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                Templates
+              </a>
+              <button id="addMetric" class="text-xs text-indigo-400 hover:text-indigo-300 transition">+ Custom</button>
+            </div>
           </div>
           
           <div id="metricsGrid" class="flex flex-wrap gap-2">
@@ -118,6 +140,17 @@ import Layout from '../layouts/Layout.astro';
           <div id="customMetrics" class="hidden mt-3 pt-3 border-t border-zinc-800">
             <p class="text-xs text-zinc-500 mb-2">Custom Metrics</p>
             <div id="customMetricsGrid" class="flex flex-wrap gap-2"></div>
+          </div>
+          
+          <!-- Metric Template Preview -->
+          <div id="metricPreview" class="mt-4 pt-3 border-t border-zinc-800 h-40 transition-opacity duration-200 opacity-50">
+            <div class="flex justify-between items-center mb-2">
+              <p id="previewMetricName" class="text-xs font-medium text-white">Metric Preview</p>
+              <span class="text-[10px] text-zinc-500">Hover over a metric to view details</span>
+            </div>
+            <div class="bg-zinc-900/50 rounded border border-zinc-800 p-2.5 h-28 overflow-hidden">
+              <pre id="previewTemplate" class="text-[10px] text-zinc-400 font-mono whitespace-pre-wrap overflow-auto h-full">Select or hover over a metric to see its description or template here.</pre>
+            </div>
           </div>
         </div>
       </div>
@@ -367,7 +400,8 @@ import Layout from '../layouts/Layout.astro';
     customRateLimits: {
       rpm: null,
       rps: null
-    }
+    },
+    persistDataset: false
   };
 
   const MODELS = {
@@ -386,6 +420,118 @@ import Layout from '../layouts/Layout.astro';
 
   // Elements
   const $ = (id) => document.getElementById(id);
+
+  // Persistence
+  function saveState() {
+    try {
+      const toSave = {
+        provider: state.provider,
+        model: state.model,
+        apiKey: state.apiKey,
+        metrics: Array.from(state.metrics),
+        customMetrics: state.customMetrics,
+        customRateLimits: state.customRateLimits,
+        persistDataset: state.persistDataset,
+        // Only save dataset if enabled and small enough
+        dataset: state.persistDataset && state.dataset.length <= 1000 ? state.dataset : [],
+        datasetHeaders: state.persistDataset ? state.datasetHeaders : [],
+        datasetFileName: state.persistDataset ? state.datasetFileName : ''
+      };
+      localStorage.setItem('evalState', JSON.stringify(toSave));
+    } catch (e) {
+      console.warn('Failed to save state:', e);
+    }
+  }
+
+  function loadState() {
+    try {
+      const saved = localStorage.getItem('evalState');
+      if (!saved) return;
+      
+      const data = JSON.parse(saved);
+      
+      // Restore state
+      state.provider = data.provider || '';
+      state.model = data.model || '';
+      state.apiKey = data.apiKey || '';
+      state.metrics = new Set(data.metrics || []);
+      state.customMetrics = data.customMetrics || [];
+      state.customRateLimits = data.customRateLimits || { rpm: null, rps: null };
+      state.persistDataset = data.persistDataset || false;
+      state.dataset = data.dataset || [];
+      state.datasetHeaders = data.datasetHeaders || [];
+      state.datasetFileName = data.datasetFileName || '';
+      
+      // Restore UI
+      $('persistDataset').checked = state.persistDataset;
+      
+      // Provider & Model
+      if (state.provider) {
+        $('provider').value = state.provider;
+        // Trigger change to populate models
+        const modelEl = $('model');
+        modelEl.innerHTML = '<option value="">Select model</option>';
+        modelEl.disabled = false;
+        
+        if (MODELS[state.provider]) {
+          MODELS[state.provider].forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            modelEl.appendChild(opt);
+          });
+          
+          const limits = RATE_LIMITS[state.provider];
+          $('rateLimits').innerHTML = `
+            <div class="flex justify-between"><span>RPM</span><span class="text-amber-500">${limits.rpm}</span></div>
+            <div class="flex justify-between mt-1"><span>RPS</span><span class="text-amber-500">${limits.rps}</span></div>
+          `;
+          
+          // Update rate limit placeholders
+          $('customRpm').placeholder = limits.rpm;
+          $('customRps').placeholder = limits.rps;
+        }
+        
+        if (state.model) {
+          $('model').value = state.model;
+        }
+      }
+      
+      // API Key
+      if (state.apiKey) {
+        $('apiKey').value = state.apiKey;
+      }
+      
+      // Dataset
+      if (state.dataset.length > 0) {
+        $('fileName').textContent = state.datasetFileName;
+        $('fileInfo').textContent = `${state.dataset.length} rows`;
+        
+        // Preview table
+        const thead = $('previewTable').querySelector('thead tr');
+        const tbody = $('previewTable').querySelector('tbody');
+        if (state.datasetHeaders) {
+          thead.innerHTML = state.datasetHeaders.map(h => `<th>${h}</th>`).join('');
+          tbody.innerHTML = state.dataset.slice(0, 3).map(row => 
+            `<tr>${state.datasetHeaders.map(h => `<td class="truncate max-w-[150px]">${row[h]}</td>`).join('')}</tr>`
+          ).join('');
+        }
+        
+        $('uploadZone').classList.add('hidden');
+        $('filePreview').classList.remove('hidden');
+      }
+      
+      // Custom Rate Limits
+      if (state.customRateLimits.rpm) $('customRpm').value = state.customRateLimits.rpm;
+      if (state.customRateLimits.rps) $('customRps').value = state.customRateLimits.rps;
+      
+      // Metrics - will be highlighted when loadMetrics runs and calls updateStatus/render
+      renderCustomMetrics();
+      
+    } catch (e) {
+      console.error('Failed to load state:', e);
+    }
+  }
 
   // Provider/Model
   $('provider').onchange = (e) => {
@@ -417,17 +563,20 @@ import Layout from '../layouts/Layout.astro';
       $('customRpm').placeholder = '—';
       $('customRps').placeholder = '—';
     }
+    saveState();
     updateStatus();
   };
 
   $('model').onchange = (e) => {
     state.model = e.target.value;
+    saveState();
     updateStatus();
   };
 
   // API Key
   $('apiKey').oninput = (e) => {
     state.apiKey = e.target.value;
+    saveState();
     updateStatus();
   };
 
@@ -460,12 +609,18 @@ import Layout from '../layouts/Layout.astro';
     if (e.target.files[0]) handleFile(e.target.files[0]);
   };
 
+  $('persistDataset').onchange = (e) => {
+    state.persistDataset = e.target.checked;
+    saveState();
+  };
+
   $('removeFile').onclick = () => {
     state.dataset = [];
     state.datasetHeaders = [];
     $('fileInput').value = '';
     $('uploadZone').classList.remove('hidden');
     $('filePreview').classList.add('hidden');
+    saveState();
     updateStatus();
   };
 
@@ -551,6 +706,7 @@ import Layout from '../layouts/Layout.astro';
       
       $('uploadZone').classList.add('hidden');
       $('filePreview').classList.remove('hidden');
+      saveState();
       updateStatus();
     };
     reader.readAsText(file);
@@ -571,18 +727,30 @@ import Layout from '../layouts/Layout.astro';
   }
 
   // Metrics
+  let metricTemplates = {}; // Store loaded templates
+
   async function loadMetrics() {
     try {
       const res = await fetch(`${API}/metrics`);
       const data = await res.json();
+      
+      // Store descriptions and fetch templates
+      // Ideally backend would return templates too, but for now we'll use what we have
+      // or fetch them on demand if possible. For now, we just know names.
       
       $('metricsGrid').innerHTML = data.pointwise_metrics.map(m => `
         <button class="chip" data-metric="${m}">${m.replace(/_/g, ' ')}</button>
       `).join('');
       
       $('metricsGrid').querySelectorAll('.chip').forEach(chip => {
+        const metric = chip.dataset.metric;
+        
+        // Restore active state if metric is in state
+        if (state.metrics.has(metric)) {
+          chip.classList.add('active');
+        }
+        
         chip.onclick = () => {
-          const metric = chip.dataset.metric;
           if (state.metrics.has(metric)) {
             state.metrics.delete(metric);
             chip.classList.remove('active');
@@ -590,12 +758,48 @@ import Layout from '../layouts/Layout.astro';
             state.metrics.add(metric);
             chip.classList.add('active');
           }
+          saveState();
           updateStatus();
         };
+        
+        // Show preview on hover
+        chip.onmouseenter = () => showMetricPreview(metric, data.description[metric]);
+        chip.onmouseleave = () => hideMetricPreview();
       });
+      
+      updateStatus(); // Update status after loading metrics
     } catch {
       $('metricsGrid').innerHTML = '<span class="text-red-400 text-sm">Failed to load. Is backend running?</span>';
     }
+  }
+
+  function showMetricPreview(metricName, description) {
+    const preview = $('metricPreview');
+    const nameEl = $('previewMetricName');
+    const contentEl = $('previewTemplate');
+    
+    preview.classList.remove('opacity-50');
+    nameEl.textContent = metricName.replace(/_/g, ' ');
+    
+    // Use description if available, or find custom metric template
+    let content = description || '';
+    
+    if (!content) {
+      // Check if it's a custom metric
+      const custom = state.customMetrics.find(m => m.id === metricName);
+      if (custom) {
+        content = custom.template;
+      }
+    }
+    
+    contentEl.textContent = content || 'No description available';
+  }
+  
+  function hideMetricPreview() {
+    const preview = $('metricPreview');
+    preview.classList.add('opacity-50');
+    $('previewMetricName').textContent = 'Metric Preview';
+    $('previewTemplate').textContent = 'Select or hover over a metric to see its description or template here.';
   }
 
   // Custom Metrics Modal
@@ -615,6 +819,7 @@ import Layout from '../layouts/Layout.astro';
     renderCustomMetrics();
     $('modal').classList.add('hidden');
     resetModal();
+    saveState();
     updateStatus();
   };
 
@@ -637,6 +842,16 @@ import Layout from '../layouts/Layout.astro';
       </div>
     `).join('');
     
+    // Add hover handlers for custom metrics
+    $('customMetricsGrid').querySelectorAll('.chip').forEach(chip => {
+      const id = chip.dataset.metric;
+      const custom = state.customMetrics.find(m => m.id === id);
+      if (custom) {
+        chip.onmouseenter = () => showMetricPreview(custom.name, custom.template);
+        chip.onmouseleave = () => hideMetricPreview();
+      }
+    });
+    
     $('customMetricsGrid').querySelectorAll('.remove-custom').forEach(btn => {
       btn.onclick = (e) => {
         e.stopPropagation();
@@ -644,6 +859,7 @@ import Layout from '../layouts/Layout.astro';
         state.customMetrics = state.customMetrics.filter(m => m.id !== id);
         state.metrics.delete(id);
         renderCustomMetrics();
+        saveState();
         updateStatus();
       };
     });
@@ -881,6 +1097,14 @@ import Layout from '../layouts/Layout.astro';
     URL.revokeObjectURL(url);
   }
 
+  // Reset All
+  $('resetAllBtn').onclick = () => {
+    if (confirm('Are you sure you want to reset all settings? This will clear your API key, dataset, and custom metrics.')) {
+      localStorage.removeItem('evalState');
+      location.reload();
+    }
+  };
+
   // Advanced Settings Toggle
   $('advancedToggle').onclick = () => {
     const content = $('advancedContent');
@@ -895,11 +1119,13 @@ import Layout from '../layouts/Layout.astro';
   $('customRpm').oninput = (e) => {
     const value = parseInt(e.target.value);
     state.customRateLimits.rpm = isNaN(value) ? null : value;
+    saveState();
   };
 
   $('customRps').oninput = (e) => {
     const value = parseInt(e.target.value);
     state.customRateLimits.rps = isNaN(value) ? null : value;
+    saveState();
   };
 
   $('resetRateLimits').onclick = () => {
@@ -913,6 +1139,7 @@ import Layout from '../layouts/Layout.astro';
       $('customRpm').placeholder = limits.rpm;
       $('customRps').placeholder = limits.rps;
     }
+    saveState();
   };
 
   // Update rate limit placeholders when provider changes
@@ -928,5 +1155,6 @@ import Layout from '../layouts/Layout.astro';
   }
 
   // Init
+  loadState();
   loadMetrics();
 </script>
