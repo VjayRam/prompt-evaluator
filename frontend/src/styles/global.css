@@ -279,6 +279,46 @@ select.input {
   flex-direction: column;
 }
 
+/* Dataset Modal - Larger for data viewing */
+.dataset-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  width: 100%;
+  max-width: 72rem;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.dataset-modal-content {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+.dataset-modal .table th.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg-tertiary);
+}
+
+.dataset-modal .table td {
+  vertical-align: top;
+}
+
+.dataset-modal .cell-content {
+  max-width: 300px;
+  max-height: 100px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.8125rem;
+}
+
 /* Score Indicator */
 .score {
   display: inline-flex;

@@ -7,7 +7,7 @@ import Layout from '../layouts/Layout.astro';
     <!-- Page Header -->
     <div>
       <h1 class="text-xl font-semibold text-white">Evaluate</h1>
-      <p class="text-sm text-zinc-500 mt-1">Configure and run LLM response evaluations</p>
+      <p class="text-sm text-zinc-500 mt-1">Configure and evaluate prompt performance for your LLM</p>
     </div>
 
     <!-- Main Grid -->
@@ -79,11 +79,20 @@ import Layout from '../layouts/Layout.astro';
                 </svg>
                 <span id="fileName" class="text-sm text-zinc-300"></span>
               </div>
-              <button id="removeFile" class="btn-icon">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <div class="flex items-center gap-2">
+                <button id="viewMoreBtn" class="btn btn-ghost text-xs">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  View More
+                </button>
+                <button id="removeFile" class="btn-icon">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
             
             <div class="mt-3 overflow-auto max-h-40 rounded-lg border border-zinc-800">
@@ -136,6 +145,10 @@ import Layout from '../layouts/Layout.astro';
               <span class="text-zinc-500">Metrics</span>
               <span id="statusMetrics" class="text-zinc-600">0</span>
             </div>
+            <div class="flex justify-between border-t border-zinc-800 pt-2.5 mt-2.5">
+              <span class="text-zinc-500">Est. API Calls</span>
+              <span id="statusApiCalls" class="text-zinc-600">0</span>
+            </div>
           </div>
           
           <button id="runBtn" class="btn btn-primary w-full mt-4" disabled>
@@ -146,11 +159,45 @@ import Layout from '../layouts/Layout.astro';
           </button>
         </div>
 
-        <!-- Rate Limits -->
+        <!-- Rate Limits Info -->
         <div class="card">
-          <h3 class="text-xs font-medium text-zinc-400 mb-3">Rate Limits</h3>
+          <h3 class="text-xs font-medium text-zinc-400 mb-3">Provider Defaults</h3>
           <div id="rateLimits" class="text-sm text-zinc-600">
             Select a provider
+          </div>
+        </div>
+
+        <!-- Advanced Settings (Collapsible) -->
+        <div class="card">
+          <button id="advancedToggle" class="w-full flex items-center justify-between text-xs font-medium text-zinc-400 hover:text-zinc-300 transition">
+            <span>Advanced Settings</span>
+            <svg id="advancedChevron" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          
+          <div id="advancedContent" class="hidden mt-4 space-y-4">
+            <div>
+              <label class="block text-xs font-medium text-zinc-400 mb-1.5">
+                Rate Limits
+                <span class="text-zinc-600 font-normal">(customize)</span>
+              </label>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-[10px] text-zinc-500 mb-1">RPM (per min)</label>
+                  <input type="number" id="customRpm" class="input text-sm" min="1" max="1000" placeholder="—" />
+                </div>
+                <div>
+                  <label class="block text-[10px] text-zinc-500 mb-1">RPS (per sec)</label>
+                  <input type="number" id="customRps" class="input text-sm" min="1" max="100" placeholder="—" />
+                </div>
+              </div>
+              <p class="text-[10px] text-zinc-600 mt-1.5">Leave empty to use provider defaults</p>
+            </div>
+            
+            <button id="resetRateLimits" class="text-xs text-zinc-500 hover:text-zinc-400 transition">
+              Reset to defaults
+            </button>
           </div>
         </div>
       </div>
@@ -242,10 +289,65 @@ import Layout from '../layouts/Layout.astro';
       <div class="spinner mx-auto mb-4"></div>
       <p class="text-sm text-white">Evaluating...</p>
       <p id="loadingStatus" class="text-xs text-zinc-500 mt-1">Initializing</p>
-      <div class="w-48 mx-auto mt-4">
+      <p id="loadingMetric" class="text-xs text-indigo-400 mt-1 hidden"></p>
+      <div class="w-64 mx-auto mt-4">
         <div class="progress">
           <div id="loadingProgress" class="progress-bar" style="width: 0%"></div>
         </div>
+        <div class="flex justify-between mt-2 text-xs text-zinc-500">
+          <span id="loadingCompleted">0</span>
+          <span id="loadingPercent">0%</span>
+          <span id="loadingTotal">0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dataset View Modal -->
+  <div id="datasetModal" class="modal-backdrop hidden">
+    <div class="dataset-modal">
+      <div class="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+        <div>
+          <h3 class="font-medium text-white">Dataset Preview</h3>
+          <p id="datasetFileName" class="text-xs text-zinc-500 mt-0.5"></p>
+        </div>
+        <button id="closeDatasetModal" class="btn-icon">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Stats Bar -->
+      <div class="px-5 py-3 bg-zinc-800/50 border-b border-zinc-800 flex items-center gap-6">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+          </svg>
+          <span class="text-xs text-zinc-400">Rows</span>
+          <span id="statsRows" class="text-sm font-medium text-white">0</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+          </svg>
+          <span class="text-xs text-zinc-400">Columns</span>
+          <span id="statsCols" class="text-sm font-medium text-white">0</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+          <span class="text-xs text-zinc-400">Cells</span>
+          <span id="statsCells" class="text-sm font-medium text-white">0</span>
+        </div>
+      </div>
+      
+      <div class="dataset-modal-content">
+        <table class="table" id="fullDatasetTable">
+          <thead><tr></tr></thead>
+          <tbody></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -261,7 +363,11 @@ import Layout from '../layouts/Layout.astro';
     dataset: [],
     metrics: new Set(),
     customMetrics: [],
-    results: null
+    results: null,
+    customRateLimits: {
+      rpm: null,
+      rps: null
+    }
   };
 
   const MODELS = {
@@ -301,9 +407,15 @@ import Layout from '../layouts/Layout.astro';
         <div class="flex justify-between"><span>RPM</span><span class="text-amber-500">${limits.rpm}</span></div>
         <div class="flex justify-between mt-1"><span>RPS</span><span class="text-amber-500">${limits.rps}</span></div>
       `;
+      
+      // Update rate limit placeholders in advanced settings
+      $('customRpm').placeholder = limits.rpm;
+      $('customRps').placeholder = limits.rps;
     } else {
       modelEl.disabled = true;
       $('rateLimits').textContent = 'Select a provider';
+      $('customRpm').placeholder = '—';
+      $('customRps').placeholder = '—';
     }
     updateStatus();
   };
@@ -350,11 +462,62 @@ import Layout from '../layouts/Layout.astro';
 
   $('removeFile').onclick = () => {
     state.dataset = [];
+    state.datasetHeaders = [];
     $('fileInput').value = '';
     $('uploadZone').classList.remove('hidden');
     $('filePreview').classList.add('hidden');
     updateStatus();
   };
+
+  // Dataset Modal
+  $('viewMoreBtn').onclick = () => {
+    if (!state.dataset.length || !state.datasetHeaders) return;
+    
+    const headers = state.datasetHeaders;
+    const rows = state.dataset.length;
+    const cols = headers.length;
+    const cells = rows * cols;
+    
+    const thead = $('fullDatasetTable').querySelector('thead tr');
+    const tbody = $('fullDatasetTable').querySelector('tbody');
+    
+    thead.innerHTML = `<th class="sticky-header">#</th>` + headers.map(h => `<th class="sticky-header">${h}</th>`).join('');
+    tbody.innerHTML = state.dataset.map((row, i) => 
+      `<tr><td class="text-zinc-500">${i + 1}</td>${headers.map(h => `<td><div class="cell-content">${escapeHtmlPreview(row[h])}</div></td>`).join('')}</tr>`
+    ).join('');
+    
+    // Populate stats
+    $('datasetFileName').textContent = state.datasetFileName || 'dataset.csv';
+    $('statsRows').textContent = rows.toLocaleString();
+    $('statsCols').textContent = cols.toLocaleString();
+    $('statsCells').textContent = cells.toLocaleString();
+    
+    $('datasetModal').classList.remove('hidden');
+  };
+
+  $('closeDatasetModal').onclick = () => {
+    $('datasetModal').classList.add('hidden');
+  };
+
+  // Close modal on backdrop click
+  $('datasetModal').onclick = (e) => {
+    if (e.target === $('datasetModal')) {
+      $('datasetModal').classList.add('hidden');
+    }
+  };
+
+  // Close modal on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('datasetModal').classList.contains('hidden')) {
+      $('datasetModal').classList.add('hidden');
+    }
+  });
+
+  function escapeHtmlPreview(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+  }
 
   function handleFile(file) {
     const reader = new FileReader();
@@ -372,6 +535,8 @@ import Layout from '../layouts/Layout.astro';
         headers.forEach((h, i) => obj[h] = row[i] || '');
         return obj;
       });
+      state.datasetHeaders = headers;
+      state.datasetFileName = file.name;
       
       $('fileName').textContent = file.name;
       $('fileInfo').textContent = `${state.dataset.length} rows`;
@@ -498,14 +663,23 @@ import Layout from '../layouts/Layout.astro';
     $('statusMetrics').textContent = state.metrics.size;
     $('statusMetrics').className = state.metrics.size ? 'text-green-500' : 'text-zinc-600';
     
+    // Calculate estimated API calls: rows × metrics
+    const estApiCalls = state.dataset.length * state.metrics.size;
+    $('statusApiCalls').textContent = estApiCalls.toLocaleString();
+    $('statusApiCalls').className = estApiCalls > 0 ? 'text-amber-500' : 'text-zinc-600';
+    
     $('runBtn').disabled = !(state.model && state.apiKey && state.dataset.length && state.metrics.size);
   }
 
-  // Run Evaluation
+  // Run Evaluation with streaming progress
   $('runBtn').onclick = async () => {
     $('loading').classList.remove('hidden');
     $('loadingStatus').textContent = 'Preparing...';
+    $('loadingMetric').classList.add('hidden');
     $('loadingProgress').style.width = '0%';
+    $('loadingCompleted').textContent = '0';
+    $('loadingPercent').textContent = '0%';
+    $('loadingTotal').textContent = '0';
     
     try {
       // Build metrics array - predefined as strings, custom as objects
@@ -539,29 +713,84 @@ import Layout from '../layouts/Layout.astro';
         metrics: metricsPayload
       };
       
-      $('loadingStatus').textContent = 'Sending request...';
-      $('loadingProgress').style.width = '30%';
+      // Add custom rate limits if user has set them
+      if (state.customRateLimits.rpm !== null || state.customRateLimits.rps !== null) {
+        payload.rate_limits = {};
+        if (state.customRateLimits.rpm !== null) {
+          payload.rate_limits.rpm = state.customRateLimits.rpm;
+        }
+        if (state.customRateLimits.rps !== null) {
+          payload.rate_limits.rps = state.customRateLimits.rps;
+        }
+      }
       
-      const res = await fetch(`${API}/evaluate`, {
+      $('loadingStatus').textContent = 'Connecting...';
+      
+      // Use streaming endpoint with fetch for SSE
+      const res = await fetch(`${API}/evaluate/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      
-      $('loadingProgress').style.width = '90%';
       
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.detail || 'Evaluation failed');
       }
       
-      state.results = await res.json();
-      $('loadingProgress').style.width = '100%';
+      // Read the SSE stream
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
       
-      setTimeout(() => {
-        $('loading').classList.add('hidden');
-        displayResults();
-      }, 300);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Process complete SSE messages
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === 'progress') {
+                // Update progress UI
+                const { completed, total, metric, percent } = data;
+                $('loadingStatus').textContent = `Processing API calls...`;
+                $('loadingMetric').textContent = `Current: ${metric.replace(/_/g, ' ')}`;
+                $('loadingMetric').classList.remove('hidden');
+                $('loadingProgress').style.width = `${percent}%`;
+                $('loadingCompleted').textContent = completed;
+                $('loadingPercent').textContent = `${percent}%`;
+                $('loadingTotal').textContent = total;
+              } else if (data.type === 'result') {
+                // Evaluation complete
+                state.results = data;
+                $('loadingProgress').style.width = '100%';
+                $('loadingStatus').textContent = 'Complete!';
+                $('loadingPercent').textContent = '100%';
+                
+                setTimeout(() => {
+                  $('loading').classList.add('hidden');
+                  displayResults();
+                }, 500);
+              } else if (data.type === 'error') {
+                throw new Error(data.message);
+              }
+            } catch (parseErr) {
+              // Skip malformed JSON
+              if (parseErr.message !== 'Unexpected end of JSON input') {
+                console.warn('SSE parse error:', parseErr);
+              }
+            }
+          }
+        }
+      }
       
     } catch (err) {
       $('loading').classList.add('hidden');
@@ -650,6 +879,52 @@ import Layout from '../layouts/Layout.astro';
     a.download = name;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  // Advanced Settings Toggle
+  $('advancedToggle').onclick = () => {
+    const content = $('advancedContent');
+    const chevron = $('advancedChevron');
+    const isHidden = content.classList.contains('hidden');
+    
+    content.classList.toggle('hidden');
+    chevron.style.transform = isHidden ? 'rotate(180deg)' : '';
+  };
+
+  // Custom Rate Limits
+  $('customRpm').oninput = (e) => {
+    const value = parseInt(e.target.value);
+    state.customRateLimits.rpm = isNaN(value) ? null : value;
+  };
+
+  $('customRps').oninput = (e) => {
+    const value = parseInt(e.target.value);
+    state.customRateLimits.rps = isNaN(value) ? null : value;
+  };
+
+  $('resetRateLimits').onclick = () => {
+    state.customRateLimits = { rpm: null, rps: null };
+    $('customRpm').value = '';
+    $('customRps').value = '';
+    
+    // Update placeholders with provider defaults if available
+    if (state.provider && RATE_LIMITS[state.provider]) {
+      const limits = RATE_LIMITS[state.provider];
+      $('customRpm').placeholder = limits.rpm;
+      $('customRps').placeholder = limits.rps;
+    }
+  };
+
+  // Update rate limit placeholders when provider changes
+  function updateRateLimitPlaceholders() {
+    if (state.provider && RATE_LIMITS[state.provider]) {
+      const limits = RATE_LIMITS[state.provider];
+      $('customRpm').placeholder = limits.rpm;
+      $('customRps').placeholder = limits.rps;
+    } else {
+      $('customRpm').placeholder = '—';
+      $('customRps').placeholder = '—';
+    }
   }
 
   // Init

@@ -81,12 +81,19 @@ class MetricInput(BaseModel):
         return self
 
 
+class RateLimitSettings(BaseModel):
+    """Optional rate limit settings for API calls."""
+    rpm: Optional[int] = Field(None, ge=1, le=1000, description="Requests per minute limit")
+    rps: Optional[int] = Field(None, ge=1, le=100, description="Requests per second limit")
+
+
 class EvaluationRequest(BaseModel):
     """Request model for evaluation endpoint."""
     dataset: list[DatasetRow] = Field(..., min_length=1, max_length=1000, description="Dataset rows to evaluate")
     judge_model: JudgeModel = Field(..., description="The LLM model to use as judge")
     metrics: list[Union[str, dict]] = Field(..., min_length=1, description="List of metric names (strings) or custom metric objects")
     api_key: str = Field(..., min_length=10, description="API key for the judge model provider")
+    rate_limits: Optional[RateLimitSettings] = Field(None, description="Optional custom rate limit settings")
     
     @field_validator('api_key')
     @classmethod

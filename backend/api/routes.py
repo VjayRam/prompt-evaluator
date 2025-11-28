@@ -1,9 +1,11 @@
 """
 API routes for LLM Evaluation service.
 """
+import json
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Request, Depends
-from typing import Annotated
+from fastapi.responses import StreamingResponse
+from typing import Annotated, AsyncGenerator
 
 from backend.api.models import (
     EvaluationRequest,
@@ -219,11 +221,20 @@ async def evaluate(
                 detail="No valid metrics provided"
             )
         
-        # Initialize LLM client
+        # Initialize LLM client with optional custom rate limits
         try:
+            rate_limit_rpm = None
+            rate_limit_rps = None
+            
+            if eval_request.rate_limits:
+                rate_limit_rpm = eval_request.rate_limits.rpm
+                rate_limit_rps = eval_request.rate_limits.rps
+            
             llm_client = LLMClient(
                 judge_model=eval_request.judge_model.value,
-                api_key=api_key
+                api_key=api_key,
+                requests_per_minute=rate_limit_rpm,
+                requests_per_second=rate_limit_rps
             )
         except ValueError as e:
             raise HTTPException(
@@ -297,3 +308,204 @@ async def rate_limit_status(request: Request):
         "max_requests": rate_limiter.max_requests,
         "window_seconds": rate_limiter.window_seconds
     }
+
+
+@router.post("/evaluate/stream", tags=["Evaluation"])
+async def evaluate_stream(
+    request: Request,
+    eval_request: EvaluationRequest,
+    client_id: Annotated[str, Depends(check_rate_limit)]
+):
+    """
+    Evaluate AI responses with streaming progress updates via Server-Sent Events.
+    
+    Streams progress events as each API call completes, then sends the final results.
+    
+    Event types:
+    - progress: {"completed": int, "total": int, "metric": str, "percent": float}
+    - result: The final evaluation results
+    - error: Error message if evaluation fails
+    """
+    request_id = generate_request_id()
+    api_key = eval_request.api_key
+    
+    async def generate_events() -> AsyncGenerator[str, None]:
+        metric_names = []
+        
+        try:
+            # Extract provider from model
+            provider = eval_request.judge_model.value.split("/")[0]
+            
+            # Validate API key format
+            if not SecureAPIKeyHandler.validate_key_format(api_key, provider):
+                yield f"data: {json.dumps({'type': 'error', 'message': f'Invalid API key format for provider: {provider}'})}\n\n"
+                return
+            
+            # Check for multi-turn metrics that require history
+            multi_turn_metric_names = {"multi_turn_chat_quality", "multi_turn_chat_safety"}
+            has_multi_turn = any(
+                m.get("name") in multi_turn_metric_names 
+                for m in eval_request.metrics 
+                if m.get("type") == "predefined"
+            )
+            
+            if has_multi_turn:
+                missing_history = [
+                    i for i, row in enumerate(eval_request.dataset)
+                    if row.history is None or row.history.strip() == ""
+                ]
+                if missing_history:
+                    yield f"data: {json.dumps({'type': 'error', 'message': f'Multi-turn metrics require history field. Missing in rows: {missing_history[:5]}'})}\n\n"
+                    return
+            
+            # Convert dataset to DataFrame
+            dataset_dicts = []
+            for row in eval_request.dataset:
+                row_dict = {"prompt": row.prompt, "response": row.response}
+                if row.history:
+                    row_dict["history"] = row.history
+                dataset_dicts.append(row_dict)
+            
+            dataset = pd.DataFrame(dataset_dicts)
+            
+            # Create evaluation metrics
+            eval_metrics = []
+            for metric_info in eval_request.metrics:
+                metric_type = metric_info.get("type")
+                metric_name = metric_info.get("name")
+                metric_names.append(metric_name)
+                
+                if metric_type == "predefined":
+                    try:
+                        metric_enum = MetricType(metric_name)
+                        template = METRIC_TEMPLATES.get(metric_enum)
+                        if template:
+                            eval_metrics.append(
+                                EvalMetric(
+                                    metric_name=metric_name,
+                                    metric_prompt_template=template
+                                )
+                            )
+                    except ValueError:
+                        yield f"data: {json.dumps({'type': 'error', 'message': f'Unknown predefined metric: {metric_name}'})}\n\n"
+                        return
+                
+                elif metric_type == "custom":
+                    custom_template = metric_info.get("template")
+                    if not custom_template:
+                        yield f"data: {json.dumps({'type': 'error', 'message': f'Custom metric {metric_name} is missing template'})}\n\n"
+                        return
+                    standard_instruction = (
+                        "You are an expert evaluator. "
+                        "Your task is to evaluate the following AI response according to the custom metric described below. "
+                        "Return your answer as a JSON object with two fields: "
+                        "'rating' (an integer, 1-5) and 'explanation' (a string explaining your rating). "
+                        "Do not return anything except the JSON object.\n\n"
+                    )
+                    wrapped_template = standard_instruction + custom_template.strip()
+                    eval_metrics.append(
+                        EvalMetric(
+                            metric_name=metric_name,
+                            metric_prompt_template=wrapped_template
+                        )
+                    )
+            
+            if not eval_metrics:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'No valid metrics provided'})}\n\n"
+                return
+            
+            # Send initial progress
+            total_calls = len(dataset) * len(eval_metrics)
+            yield f"data: {json.dumps({'type': 'progress', 'completed': 0, 'total': total_calls, 'metric': 'initializing', 'percent': 0})}\n\n"
+            
+            # Initialize LLM client with optional custom rate limits
+            rate_limit_rpm = None
+            rate_limit_rps = None
+            
+            if eval_request.rate_limits:
+                rate_limit_rpm = eval_request.rate_limits.rpm
+                rate_limit_rps = eval_request.rate_limits.rps
+            
+            try:
+                llm_client = LLMClient(
+                    judge_model=eval_request.judge_model.value,
+                    api_key=api_key,
+                    requests_per_minute=rate_limit_rpm,
+                    requests_per_second=rate_limit_rps
+                )
+            except ValueError as e:
+                yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to initialize LLM client: {str(e)}'})}\n\n"
+                return
+            
+            # Run evaluation with progress streaming
+            evaluator = Evaluator(llm_client=llm_client, eval_metrics=eval_metrics)
+            
+            # Use the generator-based evaluation
+            eval_table = None
+            summary = None
+            
+            for event in evaluator.evaluate_with_progress(dataset=dataset):
+                if event.get("type") == "progress":
+                    yield f"data: {json.dumps(event)}\n\n"
+                elif event.get("type") == "complete":
+                    eval_table = event["dataset"]
+                    summary = event["summaries"]
+            
+            if eval_table is None:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Evaluation did not complete'})}\n\n"
+                return
+            
+            # Convert results to response format
+            results = eval_table.to_dict(orient="records")
+            
+            # Format summary
+            formatted_summary = {}
+            for metric_name, stats in summary.items():
+                if metric_name != "num_samples" and isinstance(stats, dict):
+                    formatted_summary[metric_name] = {
+                        "mean": float(stats["mean"]),
+                        "std": float(stats["std"])
+                    }
+            
+            # Send final result
+            final_result = {
+                "type": "result",
+                "success": True,
+                "num_samples": len(eval_request.dataset),
+                "results": results,
+                "summary": formatted_summary,
+                "message": f"Evaluation completed successfully. Request ID: {request_id}"
+            }
+            yield f"data: {json.dumps(final_result)}\n\n"
+            
+            # Log success
+            log_evaluation_request(
+                client_id=client_id,
+                judge_model=eval_request.judge_model.value,
+                metrics=metric_names,
+                num_samples=len(eval_request.dataset),
+                success=True
+            )
+            
+        except Exception as e:
+            log_evaluation_request(
+                client_id=client_id,
+                judge_model=eval_request.judge_model.value,
+                metrics=metric_names,
+                num_samples=len(eval_request.dataset),
+                success=False
+            )
+            yield f"data: {json.dumps({'type': 'error', 'message': f'Evaluation failed: {str(e)}. Request ID: {request_id}'})}\n\n"
+        
+        finally:
+            SecureAPIKeyHandler.clear_key_from_memory(api_key)
+    
+    return StreamingResponse(
+        generate_events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
