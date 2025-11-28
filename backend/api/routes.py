@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import StreamingResponse
 from typing import Annotated, AsyncGenerator
 
-from .models import (
+from backend.api.models import (
     EvaluationRequest,
     EvaluationResponse,
     HealthResponse,
@@ -17,7 +17,7 @@ from .models import (
     JudgeModel,
     MetricResult,
 )
-from .security import (
+from backend.api.security import (
     rate_limiter,
     get_client_identifier,
     mask_api_key,
@@ -25,10 +25,10 @@ from .security import (
     SecureAPIKeyHandler,
     generate_request_id,
 )
-from ..metrics.eval_templates import EvalMetricTemplates
-from ..metrics.eval_metrics import EvalMetric
-from ..llms.llm_client import LLMClient
-from ..evaluation.eval_engine import Evaluator
+from backend.metrics.eval_templates import EvalMetricTemplates
+from backend.metrics.eval_metrics import EvalMetric
+from backend.llms.llm_client import LLMClient
+from backend.evaluation.eval_engine import Evaluator
 
 router = APIRouter()
 

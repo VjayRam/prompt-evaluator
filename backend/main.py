@@ -21,8 +21,8 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
 
-from .api.routes import router
-from .api.security import generate_request_id
+from backend.api.routes import router
+from backend.api.security import generate_request_id
 
 # Configure logging
 logging.basicConfig(
