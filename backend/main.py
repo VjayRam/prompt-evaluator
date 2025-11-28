@@ -11,7 +11,20 @@ Security Features:
 - Secure logging without sensitive data exposure
 """
 import sys
+import os
 sys.dont_write_bytecode = True
+
+# Fix for Vercel deployment where 'backend' folder is root
+# This allows 'from backend.api import ...' to work even when we are inside the backend directory
+try:
+    import backend
+except ImportError:
+    import types
+    # Create a dummy 'backend' package that points to the current directory
+    backend = types.ModuleType("backend")
+    backend.__path__ = [os.getcwd()]
+    sys.modules["backend"] = backend
+
 
 import uvicorn
 from fastapi import FastAPI, Request
