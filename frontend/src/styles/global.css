@@ -267,6 +267,10 @@ select.input {
   padding: 1rem;
 }
 
+.modal-backdrop.hidden {
+  display: none;
+}
+
 .modal {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -406,4 +410,3 @@ select.input {
 .text-muted { color: var(--text-muted); }
 .text-secondary { color: var(--text-secondary); }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hidden { display: none !important; }

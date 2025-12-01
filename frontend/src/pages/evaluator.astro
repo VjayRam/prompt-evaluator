@@ -1,0 +1,1160 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="PromptFlow">
+  <div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-semibold text-white">Evaluate</h1>
+        <p class="text-sm text-zinc-500 mt-1">Configure and evaluate prompt performance for your LLM</p>
+      </div>
+      <button id="resetAllBtn" class="btn btn-ghost text-xs text-zinc-500 hover:text-red-400 hover:bg-red-400/10 border-zinc-800" title="Reset all settings">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+        Reset
+      </button>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid lg:grid-cols-3 gap-6">
+      
+      <!-- Configuration Panel -->
+      <div class="lg:col-span-2 space-y-4">
+        
+        <!-- Model & API Key -->
+        <div class="card">
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-zinc-400 mb-1.5">Provider</label>
+              <select id="provider" class="input">
+                <option value="">Select provider</option>
+                <option value="google">Google</option>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-zinc-400 mb-1.5">Model</label>
+              <select id="model" class="input" disabled>
+                <option value="">Select model</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="mt-4">
+            <label class="block text-xs font-medium text-zinc-400 mb-1.5">API Key</label>
+            <div class="relative">
+              <input type="password" id="apiKey" class="input pr-10" placeholder="Enter your API key" />
+              <button id="toggleKey" class="btn-icon absolute right-1 top-1/2 -translate-y-1/2">
+                <svg class="w-4 h-4 eye-open" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <svg class="w-4 h-4 eye-closed hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                </svg>
+              </button>
+            </div>
+            <p class="text-xs text-zinc-600 mt-1.5">Keys are not stored and used only for this session</p>
+          </div>
+        </div>
+
+        <!-- Dataset Upload -->
+        <div class="card">
+          <div class="flex items-center justify-between mb-3">
+            <label class="text-xs font-medium text-zinc-400">Dataset</label>
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-1.5" title="Save dataset to local storage">
+                <input type="checkbox" id="persistDataset" class="rounded border-zinc-700 bg-zinc-800 text-indigo-500 focus:ring-indigo-500/20 w-3.5 h-3.5 cursor-pointer" />
+                <label for="persistDataset" class="text-[10px] text-zinc-500 select-none cursor-pointer">Persist</label>
+              </div>
+              <span id="fileInfo" class="text-xs text-zinc-600"></span>
+            </div>
+          </div>
+          
+          <div id="uploadZone" class="upload-zone">
+            <input type="file" id="fileInput" accept=".csv" class="hidden" />
+            <svg class="w-8 h-8 mx-auto text-zinc-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <p class="text-sm text-zinc-400">Drop CSV or <span class="text-indigo-400">browse</span></p>
+            <p class="text-xs text-zinc-600 mt-1">Required: prompt, response columns</p>
+          </div>
+          
+          <!-- File Preview -->
+          <div id="filePreview" class="hidden mt-3">
+            <div class="flex items-center justify-between p-2.5 bg-zinc-800/50 rounded-lg">
+              <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span id="fileName" class="text-sm text-zinc-300"></span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button id="viewMoreBtn" class="btn btn-ghost text-xs">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  View More
+                </button>
+                <button id="removeFile" class="btn-icon">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div class="mt-3 overflow-auto max-h-40 rounded-lg border border-zinc-800">
+              <table class="table" id="previewTable">
+                <thead><tr></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metrics -->
+        <div class="card">
+          <div class="flex items-center justify-between mb-3">
+            <label class="text-xs font-medium text-zinc-400">Metrics</label>
+            <div class="flex gap-2">
+              <a href="/templates" class="text-xs text-zinc-500 hover:text-zinc-300 transition flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                Templates
+              </a>
+              <button id="addMetric" class="text-xs text-indigo-400 hover:text-indigo-300 transition">+ Custom</button>
+            </div>
+          </div>
+          
+          <div id="metricsGrid" class="flex flex-wrap gap-2">
+            <div class="text-sm text-zinc-600">Loading metrics...</div>
+          </div>
+          
+          <div id="customMetrics" class="hidden mt-3 pt-3 border-t border-zinc-800">
+            <p class="text-xs text-zinc-500 mb-2">Custom Metrics</p>
+            <div id="customMetricsGrid" class="flex flex-wrap gap-2"></div>
+          </div>
+          
+          <!-- Metric Template Preview -->
+          <div id="metricPreview" class="mt-4 pt-3 border-t border-zinc-800 h-40 transition-opacity duration-200 opacity-50">
+            <div class="flex justify-between items-center mb-2">
+              <p id="previewMetricName" class="text-xs font-medium text-white">Metric Preview</p>
+              <span class="text-[10px] text-zinc-500">Hover over a metric to view details</span>
+            </div>
+            <div class="bg-zinc-900/50 rounded border border-zinc-800 p-2.5 h-28 overflow-hidden">
+              <pre id="previewTemplate" class="text-xs text-zinc-400 font-mono whitespace-pre-wrap overflow-auto h-full">Select or hover over a metric to see its description or template here.</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="space-y-4">
+        
+        <!-- Status Card -->
+        <div class="card">
+          <h3 class="text-xs font-medium text-zinc-400 mb-3">Status</h3>
+          <div class="space-y-2.5 text-sm">
+            <div class="flex justify-between">
+              <span class="text-zinc-500">Model</span>
+              <span id="statusModel" class="text-zinc-600">—</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-zinc-500">API Key</span>
+              <span id="statusKey" class="text-zinc-600">—</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-zinc-500">Dataset</span>
+              <span id="statusData" class="text-zinc-600">—</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-zinc-500">Metrics</span>
+              <span id="statusMetrics" class="text-zinc-600">0</span>
+            </div>
+            <div class="flex justify-between border-t border-zinc-800 pt-2.5 mt-2.5">
+              <span class="text-zinc-500">Est. API Calls</span>
+              <span id="statusApiCalls" class="text-zinc-600">0</span>
+            </div>
+          </div>
+          
+          <button id="runBtn" class="btn btn-primary w-full mt-4" disabled>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+            </svg>
+            Run Evaluation
+          </button>
+        </div>
+
+        <!-- Rate Limits Info -->
+        <div class="card">
+          <h3 class="text-xs font-medium text-zinc-400 mb-3">Provider Defaults</h3>
+          <div id="rateLimits" class="text-sm text-zinc-600">
+            Select a provider
+          </div>
+        </div>
+
+        <!-- Advanced Settings (Collapsible) -->
+        <div class="card">
+          <button id="advancedToggle" class="w-full flex items-center justify-between text-xs font-medium text-zinc-400 hover:text-zinc-300 transition">
+            <span>Advanced Settings</span>
+            <svg id="advancedChevron" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          
+          <div id="advancedContent" class="hidden mt-4 space-y-4">
+            <div>
+              <label class="block text-xs font-medium text-zinc-400 mb-1.5">
+                Rate Limits
+                <span class="text-zinc-600 font-normal">(customize)</span>
+              </label>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-[10px] text-zinc-500 mb-1">RPM (per min)</label>
+                  <input type="number" id="customRpm" class="input text-sm" min="1" max="1000" placeholder="—" />
+                </div>
+                <div>
+                  <label class="block text-[10px] text-zinc-500 mb-1">RPS (per sec)</label>
+                  <input type="number" id="customRps" class="input text-sm" min="1" max="100" placeholder="—" />
+                </div>
+              </div>
+              <p class="text-[10px] text-zinc-600 mt-1.5">Leave empty to use provider defaults</p>
+            </div>
+            
+            <button id="resetRateLimits" class="text-xs text-zinc-500 hover:text-zinc-400 transition">
+              Reset to defaults
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results" class="hidden">
+      <div class="card">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-base font-medium text-white">Results</h2>
+            <p id="resultsSummary" class="text-xs text-zinc-500 mt-0.5"></p>
+          </div>
+          <div class="flex gap-2">
+            <button id="downloadCsv" class="btn btn-ghost text-xs">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              CSV
+            </button>
+            <button id="downloadJson" class="btn btn-ghost text-xs">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              JSON
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs mb-4">
+          <button class="tab active" data-tab="summary">Summary</button>
+          <button class="tab" data-tab="details">Details</button>
+        </div>
+
+        <!-- Summary Tab -->
+        <div id="tabSummary" class="tab-content">
+          <div id="summaryGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+        </div>
+
+        <!-- Details Tab -->
+        <div id="tabDetails" class="tab-content hidden">
+          <div class="overflow-auto max-h-96 rounded-lg border border-zinc-800">
+            <table class="table" id="resultsTable">
+              <thead><tr></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Metric Modal -->
+  <div id="modal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+        <h3 class="font-medium text-white">Custom Metric</h3>
+        <button id="closeModal" class="btn-icon">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <div class="p-5 space-y-4 overflow-auto" style="max-height: 60vh;">
+        <div>
+          <label class="block text-xs font-medium text-zinc-400 mb-1.5">Name</label>
+          <input type="text" id="metricName" class="input" placeholder="e.g., Technical Accuracy" />
+        </div>
+        
+        <div>
+          <label class="block text-xs font-medium text-zinc-400 mb-1.5">Template</label>
+          <p class="text-xs text-zinc-600 mb-1.5">Use &#123;prompt&#125; and &#123;response&#125; as placeholders</p>
+          <textarea id="metricTemplate" class="input h-32 font-mono text-xs" placeholder={"Evaluate the response.\n\nPrompt: {prompt}\nResponse: {response}\n\nRate 1-5 based on accuracy."}></textarea>
+        </div>
+      </div>
+      
+      <div class="px-5 py-4 border-t border-zinc-800 flex justify-end gap-2">
+        <button id="cancelMetric" class="btn btn-ghost">Cancel</button>
+        <button id="saveMetric" class="btn btn-primary">Add Metric</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loading" class="modal-backdrop hidden">
+    <div class="text-center">
+      <div class="spinner mx-auto mb-4"></div>
+      <p class="text-sm text-white">Evaluating...</p>
+      <p id="loadingStatus" class="text-xs text-zinc-500 mt-1">Initializing</p>
+      <p id="loadingMetric" class="text-xs text-indigo-400 mt-1 hidden"></p>
+      <div class="w-64 mx-auto mt-4">
+        <div class="progress">
+          <div id="loadingProgress" class="progress-bar" style="width: 0%"></div>
+        </div>
+        <div class="flex justify-between mt-2 text-xs text-zinc-500">
+          <span id="loadingCompleted">0</span>
+          <span id="loadingPercent">0%</span>
+          <span id="loadingTotal">0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dataset View Modal -->
+  <div id="datasetModal" class="modal-backdrop hidden">
+    <div class="dataset-modal">
+      <div class="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+        <div>
+          <h3 class="font-medium text-white">Dataset Preview</h3>
+          <p id="datasetFileName" class="text-xs text-zinc-500 mt-0.5"></p>
+        </div>
+        <button id="closeDatasetModal" class="btn-icon">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Stats Bar -->
+      <div class="px-5 py-3 bg-zinc-800/50 border-b border-zinc-800 flex items-center gap-6">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+          </svg>
+          <span class="text-xs text-zinc-400">Rows</span>
+          <span id="statsRows" class="text-sm font-medium text-white">0</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+          </svg>
+          <span class="text-xs text-zinc-400">Columns</span>
+          <span id="statsCols" class="text-sm font-medium text-white">0</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+          <span class="text-xs text-zinc-400">Cells</span>
+          <span id="statsCells" class="text-sm font-medium text-white">0</span>
+        </div>
+      </div>
+      
+      <div class="dataset-modal-content">
+        <table class="table" id="fullDatasetTable">
+          <thead><tr></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  // @ts-nocheck
+  // State
+  const state = {
+    provider: '',
+    model: '',
+    apiKey: '',
+    dataset: [],
+    metrics: new Set(),
+    customMetrics: [],
+    results: null,
+    customRateLimits: {
+      rpm: null,
+      rps: null
+    },
+    persistDataset: false
+  };
+
+  const MODELS = {
+    google: ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-pro'],
+    openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'],
+    anthropic: ['claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest']
+  };
+
+  const RATE_LIMITS = {
+    google: { rpm: 15, rps: 2 },
+    openai: { rpm: 60, rps: 3 },
+    anthropic: { rpm: 50, rps: 1 }
+  };
+
+  const API = 'https://prompt-evaluator-backend.vercel.app/api/v1';
+
+  // Elements
+  const $ = (id) => document.getElementById(id);
+
+  // Persistence
+  function saveState() {
+    try {
+      const toSave = {
+        provider: state.provider,
+        model: state.model,
+        apiKey: state.apiKey,
+        metrics: Array.from(state.metrics),
+        customMetrics: state.customMetrics,
+        customRateLimits: state.customRateLimits,
+        persistDataset: state.persistDataset,
+        // Only save dataset if enabled and small enough
+        dataset: state.persistDataset && state.dataset.length <= 1000 ? state.dataset : [],
+        datasetHeaders: state.persistDataset ? state.datasetHeaders : [],
+        datasetFileName: state.persistDataset ? state.datasetFileName : ''
+      };
+      localStorage.setItem('evalState', JSON.stringify(toSave));
+    } catch (e) {
+      console.warn('Failed to save state:', e);
+    }
+  }
+
+  function loadState() {
+    try {
+      const saved = localStorage.getItem('evalState');
+      if (!saved) return;
+      
+      const data = JSON.parse(saved);
+      
+      // Restore state
+      state.provider = data.provider || '';
+      state.model = data.model || '';
+      state.apiKey = data.apiKey || '';
+      state.metrics = new Set(data.metrics || []);
+      state.customMetrics = data.customMetrics || [];
+      state.customRateLimits = data.customRateLimits || { rpm: null, rps: null };
+      state.persistDataset = data.persistDataset || false;
+      state.dataset = data.dataset || [];
+      state.datasetHeaders = data.datasetHeaders || [];
+      state.datasetFileName = data.datasetFileName || '';
+      
+      // Restore UI
+      $('persistDataset').checked = state.persistDataset;
+      
+      // Provider & Model
+      if (state.provider) {
+        $('provider').value = state.provider;
+        // Trigger change to populate models
+        const modelEl = $('model');
+        modelEl.innerHTML = '<option value="">Select model</option>';
+        modelEl.disabled = false;
+        
+        if (MODELS[state.provider]) {
+          MODELS[state.provider].forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            modelEl.appendChild(opt);
+          });
+          
+          const limits = RATE_LIMITS[state.provider];
+          $('rateLimits').innerHTML = `
+            <div class="flex justify-between"><span>RPM</span><span class="text-amber-500">${limits.rpm}</span></div>
+            <div class="flex justify-between mt-1"><span>RPS</span><span class="text-amber-500">${limits.rps}</span></div>
+          `;
+          
+          // Update rate limit placeholders
+          $('customRpm').placeholder = limits.rpm;
+          $('customRps').placeholder = limits.rps;
+        }
+        
+        if (state.model) {
+          $('model').value = state.model;
+        }
+      }
+      
+      // API Key
+      if (state.apiKey) {
+        $('apiKey').value = state.apiKey;
+      }
+      
+      // Dataset
+      if (state.dataset.length > 0) {
+        $('fileName').textContent = state.datasetFileName;
+        $('fileInfo').textContent = `${state.dataset.length} rows`;
+        
+        // Preview table
+        const thead = $('previewTable').querySelector('thead tr');
+        const tbody = $('previewTable').querySelector('tbody');
+        if (state.datasetHeaders) {
+          thead.innerHTML = state.datasetHeaders.map(h => `<th>${h}</th>`).join('');
+          tbody.innerHTML = state.dataset.slice(0, 3).map(row => 
+            `<tr>${state.datasetHeaders.map(h => `<td class="truncate max-w-[150px]">${row[h]}</td>`).join('')}</tr>`
+          ).join('');
+        }
+        
+        $('uploadZone').classList.add('hidden');
+        $('filePreview').classList.remove('hidden');
+      }
+      
+      // Custom Rate Limits
+      if (state.customRateLimits.rpm) $('customRpm').value = state.customRateLimits.rpm;
+      if (state.customRateLimits.rps) $('customRps').value = state.customRateLimits.rps;
+      
+      // Metrics - will be highlighted when loadMetrics runs and calls updateStatus/render
+      renderCustomMetrics();
+      
+    } catch (e) {
+      console.error('Failed to load state:', e);
+    }
+  }
+
+  // Provider/Model
+  $('provider').onchange = (e) => {
+    state.provider = e.target.value;
+    const modelEl = $('model');
+    modelEl.innerHTML = '<option value="">Select model</option>';
+    
+    if (state.provider && MODELS[state.provider]) {
+      modelEl.disabled = false;
+      MODELS[state.provider].forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        modelEl.appendChild(opt);
+      });
+      
+      const limits = RATE_LIMITS[state.provider];
+      $('rateLimits').innerHTML = `
+        <div class="flex justify-between"><span>RPM</span><span class="text-amber-500">${limits.rpm}</span></div>
+        <div class="flex justify-between mt-1"><span>RPS</span><span class="text-amber-500">${limits.rps}</span></div>
+      `;
+      
+      // Update rate limit placeholders in advanced settings
+      $('customRpm').placeholder = limits.rpm;
+      $('customRps').placeholder = limits.rps;
+    } else {
+      modelEl.disabled = true;
+      $('rateLimits').textContent = 'Select a provider';
+      $('customRpm').placeholder = '—';
+      $('customRps').placeholder = '—';
+    }
+    saveState();
+    updateStatus();
+  };
+
+  $('model').onchange = (e) => {
+    state.model = e.target.value;
+    saveState();
+    updateStatus();
+  };
+
+  // API Key
+  $('apiKey').oninput = (e) => {
+    state.apiKey = e.target.value;
+    saveState();
+    updateStatus();
+  };
+
+  $('toggleKey').onclick = () => {
+    const input = $('apiKey');
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    $('toggleKey').querySelector('.eye-open').classList.toggle('hidden', !isPassword);
+    $('toggleKey').querySelector('.eye-closed').classList.toggle('hidden', isPassword);
+  };
+
+  // File Upload
+  $('uploadZone').onclick = () => $('fileInput').click();
+  
+  $('uploadZone').ondragover = (e) => {
+    e.preventDefault();
+    $('uploadZone').classList.add('dragover');
+  };
+  
+  $('uploadZone').ondragleave = () => $('uploadZone').classList.remove('dragover');
+  
+  $('uploadZone').ondrop = (e) => {
+    e.preventDefault();
+    $('uploadZone').classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file?.name.endsWith('.csv')) handleFile(file);
+  };
+
+  $('fileInput').onchange = (e) => {
+    if (e.target.files[0]) handleFile(e.target.files[0]);
+  };
+
+  $('persistDataset').onchange = (e) => {
+    state.persistDataset = e.target.checked;
+    saveState();
+  };
+
+  $('removeFile').onclick = () => {
+    state.dataset = [];
+    state.datasetHeaders = [];
+    $('fileInput').value = '';
+    $('uploadZone').classList.remove('hidden');
+    $('filePreview').classList.add('hidden');
+    saveState();
+    updateStatus();
+  };
+
+  // Dataset Modal
+  $('viewMoreBtn').onclick = () => {
+    if (!state.dataset.length || !state.datasetHeaders) return;
+    
+    const headers = state.datasetHeaders;
+    const rows = state.dataset.length;
+    const cols = headers.length;
+    const cells = rows * cols;
+    
+    const thead = $('fullDatasetTable').querySelector('thead tr');
+    const tbody = $('fullDatasetTable').querySelector('tbody');
+    
+    thead.innerHTML = `<th class="sticky-header">#</th>` + headers.map(h => `<th class="sticky-header">${h}</th>`).join('');
+    tbody.innerHTML = state.dataset.map((row, i) => 
+      `<tr><td class="text-zinc-500">${i + 1}</td>${headers.map(h => `<td><div class="cell-content">${escapeHtmlPreview(row[h])}</div></td>`).join('')}</tr>`
+    ).join('');
+    
+    // Populate stats
+    $('datasetFileName').textContent = state.datasetFileName || 'dataset.csv';
+    $('statsRows').textContent = rows.toLocaleString();
+    $('statsCols').textContent = cols.toLocaleString();
+    $('statsCells').textContent = cells.toLocaleString();
+    
+    $('datasetModal').classList.remove('hidden');
+  };
+
+  $('closeDatasetModal').onclick = () => {
+    $('datasetModal').classList.add('hidden');
+  };
+
+  // Close modal on backdrop click
+  $('datasetModal').onclick = (e) => {
+    if (e.target === $('datasetModal')) {
+      $('datasetModal').classList.add('hidden');
+    }
+  };
+
+  // Close modal on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('datasetModal').classList.contains('hidden')) {
+      $('datasetModal').classList.add('hidden');
+    }
+  });
+
+  function escapeHtmlPreview(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+  }
+
+  function handleFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const rows = parseCSV(e.target.result);
+      if (rows.length < 2) return alert('CSV must have headers and data');
+      
+      const headers = rows[0];
+      if (!headers.includes('prompt') || !headers.includes('response')) {
+        return alert('CSV must have "prompt" and "response" columns');
+      }
+      
+      state.dataset = rows.slice(1).map(row => {
+        const obj = {};
+        headers.forEach((h, i) => obj[h] = row[i] || '');
+        return obj;
+      });
+      state.datasetHeaders = headers;
+      state.datasetFileName = file.name;
+      
+      $('fileName').textContent = file.name;
+      $('fileInfo').textContent = `${state.dataset.length} rows`;
+      
+      // Preview table
+      const thead = $('previewTable').querySelector('thead tr');
+      const tbody = $('previewTable').querySelector('tbody');
+      thead.innerHTML = headers.map(h => `<th>${h}</th>`).join('');
+      tbody.innerHTML = state.dataset.slice(0, 3).map(row => 
+        `<tr>${headers.map(h => `<td class="truncate max-w-[150px]">${row[h]}</td>`).join('')}</tr>`
+      ).join('');
+      
+      $('uploadZone').classList.add('hidden');
+      $('filePreview').classList.remove('hidden');
+      saveState();
+      updateStatus();
+    };
+    reader.readAsText(file);
+  }
+
+  function parseCSV(text) {
+    return text.split('\n').map(line => {
+      const result = [];
+      let cell = '', inQuotes = false;
+      for (const char of line) {
+        if (char === '"') inQuotes = !inQuotes;
+        else if (char === ',' && !inQuotes) { result.push(cell.trim()); cell = ''; }
+        else cell += char;
+      }
+      result.push(cell.trim());
+      return result;
+    }).filter(row => row.some(c => c));
+  }
+
+  // Metrics
+  let metricTemplates = {}; // Store loaded templates
+
+  async function loadMetrics() {
+    try {
+      const res = await fetch(`${API}/metrics`);
+      const data = await res.json();
+      
+      // Store descriptions and fetch templates
+      // Ideally backend would return templates too, but for now we'll use what we have
+      // or fetch them on demand if possible. For now, we just know names.
+      
+      $('metricsGrid').innerHTML = data.pointwise_metrics.map(m => `
+        <button class="chip" data-metric="${m}">${m.replace(/_/g, ' ')}</button>
+      `).join('');
+      
+      $('metricsGrid').querySelectorAll('.chip').forEach(chip => {
+        const metric = chip.dataset.metric;
+        
+        // Restore active state if metric is in state
+        if (state.metrics.has(metric)) {
+          chip.classList.add('active');
+        }
+        
+        chip.onclick = () => {
+          if (state.metrics.has(metric)) {
+            state.metrics.delete(metric);
+            chip.classList.remove('active');
+          } else {
+            state.metrics.add(metric);
+            chip.classList.add('active');
+          }
+          saveState();
+          updateStatus();
+        };
+        
+        // Show preview on hover
+        chip.onmouseenter = () => showMetricPreview(metric, data.description[metric]);
+        chip.onmouseleave = () => hideMetricPreview();
+      });
+      
+      updateStatus(); // Update status after loading metrics
+    } catch {
+      $('metricsGrid').innerHTML = '<span class="text-red-400 text-sm">Failed to load. Is backend running?</span>';
+    }
+  }
+
+  function showMetricPreview(metricName, description) {
+    const preview = $('metricPreview');
+    const nameEl = $('previewMetricName');
+    const contentEl = $('previewTemplate');
+    
+    preview.classList.remove('opacity-50');
+    nameEl.textContent = metricName.replace(/_/g, ' ');
+    
+    // Use description if available, or find custom metric template
+    let content = description || '';
+    
+    if (!content) {
+      // Check if it's a custom metric
+      const custom = state.customMetrics.find(m => m.id === metricName);
+      if (custom) {
+        content = custom.template;
+      }
+    }
+    
+    contentEl.textContent = content || 'No description available';
+  }
+  
+  function hideMetricPreview() {
+    const preview = $('metricPreview');
+    preview.classList.add('opacity-50');
+    $('previewMetricName').textContent = 'Metric Preview';
+    $('previewTemplate').textContent = 'Select or hover over a metric to see its description or template here.';
+  }
+
+  // Custom Metrics Modal
+  $('addMetric').onclick = () => $('modal').classList.remove('hidden');
+  $('closeModal').onclick = () => { $('modal').classList.add('hidden'); resetModal(); };
+  $('cancelMetric').onclick = () => { $('modal').classList.add('hidden'); resetModal(); };
+  
+  $('saveMetric').onclick = () => {
+    const name = $('metricName').value.trim();
+    const template = $('metricTemplate').value.trim();
+    if (!name || !template) return alert('Name and template required');
+    
+    const id = `custom_${name.toLowerCase().replace(/\s+/g, '_')}`;
+    state.customMetrics.push({ id, name, template });
+    state.metrics.add(id);
+    
+    renderCustomMetrics();
+    $('modal').classList.add('hidden');
+    resetModal();
+    saveState();
+    updateStatus();
+  };
+
+  function resetModal() {
+    $('metricName').value = '';
+    $('metricTemplate').value = '';
+  }
+
+  function renderCustomMetrics() {
+    if (!state.customMetrics.length) {
+      $('customMetrics').classList.add('hidden');
+      return;
+    }
+    
+    $('customMetrics').classList.remove('hidden');
+    $('customMetricsGrid').innerHTML = state.customMetrics.map(m => `
+      <div class="chip active" data-metric="${m.id}">
+        ${m.name}
+        <button class="remove-custom ml-1 text-zinc-500 hover:text-red-400" data-id="${m.id}">×</button>
+      </div>
+    `).join('');
+    
+    // Add hover handlers for custom metrics
+    $('customMetricsGrid').querySelectorAll('.chip').forEach(chip => {
+      const id = chip.dataset.metric;
+      const custom = state.customMetrics.find(m => m.id === id);
+      if (custom) {
+        chip.onmouseenter = () => showMetricPreview(custom.name, custom.template);
+        chip.onmouseleave = () => hideMetricPreview();
+      }
+    });
+    
+    $('customMetricsGrid').querySelectorAll('.remove-custom').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        state.customMetrics = state.customMetrics.filter(m => m.id !== id);
+        state.metrics.delete(id);
+        renderCustomMetrics();
+        saveState();
+        updateStatus();
+      };
+    });
+  }
+
+  // Status
+  function updateStatus() {
+    $('statusModel').textContent = state.model || '—';
+    $('statusModel').className = state.model ? 'text-green-500' : 'text-zinc-600';
+    
+    $('statusKey').textContent = state.apiKey ? '••••' + state.apiKey.slice(-4) : '—';
+    $('statusKey').className = state.apiKey ? 'text-green-500' : 'text-zinc-600';
+    
+    $('statusData').textContent = state.dataset.length ? `${state.dataset.length} rows` : '—';
+    $('statusData').className = state.dataset.length ? 'text-green-500' : 'text-zinc-600';
+    
+    $('statusMetrics').textContent = state.metrics.size;
+    $('statusMetrics').className = state.metrics.size ? 'text-green-500' : 'text-zinc-600';
+    
+    // Calculate estimated API calls: rows × metrics
+    const estApiCalls = state.dataset.length * state.metrics.size;
+    $('statusApiCalls').textContent = estApiCalls.toLocaleString();
+    $('statusApiCalls').className = estApiCalls > 0 ? 'text-amber-500' : 'text-zinc-600';
+    
+    $('runBtn').disabled = !(state.model && state.apiKey && state.dataset.length && state.metrics.size);
+  }
+
+  // Run Evaluation with streaming progress
+  $('runBtn').onclick = async () => {
+    $('loading').classList.remove('hidden');
+    $('loadingStatus').textContent = 'Preparing...';
+    $('loadingMetric').classList.add('hidden');
+    $('loadingProgress').style.width = '0%';
+    $('loadingCompleted').textContent = '0';
+    $('loadingPercent').textContent = '0%';
+    $('loadingTotal').textContent = '0';
+    
+    try {
+      // Build metrics array - predefined as strings, custom as objects
+      const metricsPayload = [];
+      
+      // Add predefined metrics (as strings)
+      for (const m of state.metrics) {
+        if (!m.startsWith('custom_')) {
+          metricsPayload.push(m);
+        }
+      }
+      
+      // Add custom metrics (as objects with name and template)
+      for (const m of state.customMetrics) {
+        if (state.metrics.has(m.id)) {
+          metricsPayload.push({
+            name: m.name,
+            template: m.template
+          });
+        }
+      }
+      
+      if (metricsPayload.length === 0) {
+        throw new Error('Please select at least one metric.');
+      }
+      
+      const payload = {
+        judge_model: `${state.provider}/${state.model}`,
+        api_key: state.apiKey,
+        dataset: state.dataset,
+        metrics: metricsPayload
+      };
+      
+      // Add custom rate limits if user has set them
+      if (state.customRateLimits.rpm !== null || state.customRateLimits.rps !== null) {
+        payload.rate_limits = {};
+        if (state.customRateLimits.rpm !== null) {
+          payload.rate_limits.rpm = state.customRateLimits.rpm;
+        }
+        if (state.customRateLimits.rps !== null) {
+          payload.rate_limits.rps = state.customRateLimits.rps;
+        }
+      }
+      
+      $('loadingStatus').textContent = 'Connecting...';
+      
+      // Use streaming endpoint with fetch for SSE
+      const res = await fetch(`${API}/evaluate/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Evaluation failed');
+      }
+      
+      // Read the SSE stream
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Process complete SSE messages
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === 'progress') {
+                // Update progress UI
+                const { completed, total, metric, percent } = data;
+                $('loadingStatus').textContent = `Processing API calls...`;
+                $('loadingMetric').textContent = `Current: ${metric.replace(/_/g, ' ')}`;
+                $('loadingMetric').classList.remove('hidden');
+                $('loadingProgress').style.width = `${percent}%`;
+                $('loadingCompleted').textContent = completed;
+                $('loadingPercent').textContent = `${percent}%`;
+                $('loadingTotal').textContent = total;
+              } else if (data.type === 'result') {
+                // Evaluation complete
+                state.results = data;
+                $('loadingProgress').style.width = '100%';
+                $('loadingStatus').textContent = 'Complete!';
+                $('loadingPercent').textContent = '100%';
+                
+                setTimeout(() => {
+                  $('loading').classList.add('hidden');
+                  displayResults();
+                }, 500);
+              } else if (data.type === 'error') {
+                throw new Error(data.message);
+              }
+            } catch (parseErr) {
+              // Skip malformed JSON
+              if (parseErr.message !== 'Unexpected end of JSON input') {
+                console.warn('SSE parse error:', parseErr);
+              }
+            }
+          }
+        }
+      }
+      
+    } catch (err) {
+      $('loading').classList.add('hidden');
+      alert(`Error: ${err.message}`);
+    }
+  };
+
+  // Display Results
+  function displayResults() {
+    const { summary, results } = state.results;
+    
+    $('results').classList.remove('hidden');
+    $('resultsSummary').textContent = `${results.length} items evaluated`;
+    
+    // Summary cards
+    $('summaryGrid').innerHTML = Object.entries(summary).map(([metric, data]) => `
+      <div class="bg-zinc-800/50 rounded-lg p-3">
+        <p class="text-xs text-zinc-500 truncate">${metric}</p>
+        <p class="text-xl font-semibold text-white mt-1">${data.mean.toFixed(2)}</p>
+        <p class="text-xs text-zinc-600 mt-0.5">±${data.std.toFixed(2)}</p>
+      </div>
+    `).join('');
+    
+    // Results table
+    const metricNames = Object.keys(summary);
+    const thead = $('resultsTable').querySelector('thead tr');
+    const tbody = $('resultsTable').querySelector('tbody');
+    
+    thead.innerHTML = `<th>#</th><th>Prompt</th><th>Response</th>${metricNames.map(m => `<th>${m}</th>`).join('')}`;
+    
+    tbody.innerHTML = results.map((row, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td class="truncate max-w-[200px]" title="${escapeHtml(row.prompt)}">${row.prompt}</td>
+        <td class="truncate max-w-[200px]" title="${escapeHtml(row.response)}">${row.response}</td>
+        ${metricNames.map(m => {
+          const score = row[m + '_rating'] ?? row[m] ?? '—';
+          const cls = typeof score === 'number' ? (score >= 3.5 ? 'score-high' : score >= 2 ? 'score-mid' : 'score-low') : '';
+          return `<td><span class="score ${cls}">${score}</span></td>`;
+        }).join('')}
+      </tr>
+    `).join('');
+    
+    $('results').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+  }
+
+  // Tabs
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.onclick = () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      
+      $('tabSummary').classList.toggle('hidden', tab.dataset.tab !== 'summary');
+      $('tabDetails').classList.toggle('hidden', tab.dataset.tab !== 'details');
+    };
+  });
+
+  // Downloads
+
+  $('downloadCsv').onclick = () => {
+    if (!state.results) return;
+    const { summary, results } = state.results;
+    const metrics = Object.keys(summary);
+    // Include both rating and explanation columns for each metric
+    const headers = ['prompt', 'response', ...metrics.flatMap(m => [m + '_rating', m + '_explanation'])];
+    const rows = results.map(r => headers.map(h => `"${String(r[h] || '').replace(/"/g, '""')}"`).join(','));
+    download([headers.join(','), ...rows].join('\n'), 'results.csv', 'text/csv');
+  };
+
+  $('downloadJson').onclick = () => {
+    if (!state.results) return;
+    download(JSON.stringify(state.results, null, 2), 'results.json', 'application/json');
+  };
+
+  function download(content, name, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Reset All
+  $('resetAllBtn').onclick = () => {
+    if (confirm('Are you sure you want to reset all settings? This will clear your API key, dataset, and custom metrics.')) {
+      localStorage.removeItem('evalState');
+      location.reload();
+    }
+  };
+
+  // Advanced Settings Toggle
+  $('advancedToggle').onclick = () => {
+    const content = $('advancedContent');
+    const chevron = $('advancedChevron');
+    const isHidden = content.classList.contains('hidden');
+    
+    content.classList.toggle('hidden');
+    chevron.style.transform = isHidden ? 'rotate(180deg)' : '';
+  };
+
+  // Custom Rate Limits
+  $('customRpm').oninput = (e) => {
+    const value = parseInt(e.target.value);
+    state.customRateLimits.rpm = isNaN(value) ? null : value;
+    saveState();
+  };
+
+  $('customRps').oninput = (e) => {
+    const value = parseInt(e.target.value);
+    state.customRateLimits.rps = isNaN(value) ? null : value;
+    saveState();
+  };
+
+  $('resetRateLimits').onclick = () => {
+    state.customRateLimits = { rpm: null, rps: null };
+    $('customRpm').value = '';
+    $('customRps').value = '';
+    
+    // Update placeholders with provider defaults if available
+    if (state.provider && RATE_LIMITS[state.provider]) {
+      const limits = RATE_LIMITS[state.provider];
+      $('customRpm').placeholder = limits.rpm;
+      $('customRps').placeholder = limits.rps;
+    }
+    saveState();
+  };
+
+  // Update rate limit placeholders when provider changes
+  function updateRateLimitPlaceholders() {
+    if (state.provider && RATE_LIMITS[state.provider]) {
+      const limits = RATE_LIMITS[state.provider];
+      $('customRpm').placeholder = limits.rpm;
+      $('customRps').placeholder = limits.rps;
+    } else {
+      $('customRpm').placeholder = '—';
+      $('customRps').placeholder = '—';
+    }
+  }
+
+  // Init
+  loadState();
+  loadMetrics();
+</script>
